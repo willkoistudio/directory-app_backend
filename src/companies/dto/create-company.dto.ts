@@ -1,0 +1,47 @@
+import { IsString, IsOptional, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
+
+class AddressDto {
+  @IsString()
+  street: string;
+
+  @IsString()
+  cityId: string;
+
+  @IsString()
+  postalCode: string;
+
+  @IsString()
+  countryId: string;
+}
+
+export class CreateCompanyDto {
+  @IsString()
+  name: string;
+
+  @IsString()
+  phone: string;
+
+  @IsOptional()
+  @IsString()
+  fax?: string;
+
+  @IsOptional()
+  @IsString()
+  website?: string;
+
+  @IsString()
+  logo: string;
+
+  @IsString()
+  area: string;
+
+  @ValidateNested()
+  @Type(() => AddressDto)
+  address: AddressDto;
+
+  @IsOptional()
+  @IsString()
+  notes?: string;
+}
+
