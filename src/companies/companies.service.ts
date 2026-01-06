@@ -35,9 +35,7 @@ export class CompaniesService {
   async findAll() {
     const supabase = this.supabaseService.getClient();
 
-    const { data, error } = await supabase
-      .from('companies')
-      .select('*');
+    const { data, error } = await supabase.from('companies').select('*');
 
     if (error) throw error;
     return data.map((company) => this.mapToCompany(company));
@@ -65,8 +63,10 @@ export class CompaniesService {
     const updateData: any = {};
     if (updateCompanyDto.name) updateData.name = updateCompanyDto.name;
     if (updateCompanyDto.phone) updateData.phone = updateCompanyDto.phone;
-    if (updateCompanyDto.fax !== undefined) updateData.fax = updateCompanyDto.fax;
-    if (updateCompanyDto.website !== undefined) updateData.website = updateCompanyDto.website;
+    if (updateCompanyDto.fax !== undefined)
+      updateData.fax = updateCompanyDto.fax;
+    if (updateCompanyDto.website !== undefined)
+      updateData.website = updateCompanyDto.website;
     if (updateCompanyDto.logo) updateData.logo = updateCompanyDto.logo;
     if (updateCompanyDto.area) updateData.area = updateCompanyDto.area;
     if (updateCompanyDto.address) {
@@ -75,7 +75,8 @@ export class CompaniesService {
       updateData.postal_code = updateCompanyDto.address.postalCode;
       updateData.country_id = updateCompanyDto.address.countryId;
     }
-    if (updateCompanyDto.notes !== undefined) updateData.notes = updateCompanyDto.notes;
+    if (updateCompanyDto.notes !== undefined)
+      updateData.notes = updateCompanyDto.notes;
 
     const { data, error } = await supabase
       .from('companies')
@@ -95,10 +96,7 @@ export class CompaniesService {
   async remove(id: string) {
     const supabase = this.supabaseService.getClient();
 
-    const { error } = await supabase
-      .from('companies')
-      .delete()
-      .eq('id', id);
+    const { error } = await supabase.from('companies').delete().eq('id', id);
 
     if (error) throw error;
     return { message: 'Company deleted successfully' };
@@ -142,4 +140,3 @@ export class CompaniesService {
     };
   }
 }
-
