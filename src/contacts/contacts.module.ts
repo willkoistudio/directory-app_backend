@@ -1,10 +1,15 @@
 import { Module } from '@nestjs/common';
+import { MongooseModule } from '@nestjs/mongoose';
 import { ContactsService } from './contacts.service';
 import { ContactsController } from './contacts.controller';
-import { SupabaseModule } from '../supabase/supabase.module';
+import { Contact, ContactSchema } from '../schemas/contact.schema';
+import { AuthModule } from '../auth/auth.module';
 
 @Module({
-  imports: [SupabaseModule],
+  imports: [
+    MongooseModule.forFeature([{ name: Contact.name, schema: ContactSchema }]),
+    AuthModule,
+  ],
   controllers: [ContactsController],
   providers: [ContactsService],
 })

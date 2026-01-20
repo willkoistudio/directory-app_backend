@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { MongooseModule } from '@nestjs/mongoose';
 import { ContactsModule } from './contacts/contacts.module';
 import { CompaniesModule } from './companies/companies.module';
 import { AuthModule } from './auth/auth.module';
-import { SupabaseModule } from './supabase/supabase.module';
 
 @Module({
   imports: [
@@ -11,7 +11,7 @@ import { SupabaseModule } from './supabase/supabase.module';
       isGlobal: true,
       envFilePath: '.env',
     }),
-    SupabaseModule,
+    MongooseModule.forRoot(process.env.MONGODB_URI || 'mongodb://localhost:27017/directory'),
     ContactsModule,
     CompaniesModule,
     AuthModule,

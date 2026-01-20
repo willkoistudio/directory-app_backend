@@ -5,25 +5,27 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { SupabaseService } from '../../supabase/supabase.service';
+import { JwtService } from '@nestjs/jwt';
+import { AuthService } from '../auth.service';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
   constructor(
-    private supabaseService: SupabaseService,
+    private jwtService: JwtService,
+    private authService: AuthService,
     private reflector: Reflector,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    // Vérifier si la route est publique
+    // Check if route is public
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
       context.getHandler(),
       context.getClass(),
     ]);
 
     if (isPublic) {
-      return true; // ✅ Route publique, pas besoin d'authentification
+      return true; // Public route, no authentication needed
     }
 
     const request = context.switchToHttp().getRequest();
@@ -33,16 +35,18 @@ export class JwtAuthGuard implements CanActivate {
       throw new UnauthorizedException('No token provided');
     }
 
-    // Vérifier le token avec Supabase
-    const supabase = this.supabaseService.getClient();
-    const { data, error } = await supabase.auth.getUser(token);
+    try {
+      // Verify JWT token
+      const payload = this.jwtService.verify(token);
 
-    if (error || !data.user) {
+      // Get user from database
+      const user = await this.authService.validateUser(payload.sub);
+
+      // Attach user to request
+      request.user = user;
+      return true;
+    } catch (error) {
       throw new UnauthorizedException('Invalid token');
     }
-
-    // Ajouter l'utilisateur à la requête pour l'utiliser dans le Controller
-    request.user = data.user;
-    return true; // ✅ Autoriser la requête
   }
 }

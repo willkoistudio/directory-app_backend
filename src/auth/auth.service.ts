@@ -2,51 +2,86 @@ import {
   Injectable,
   UnauthorizedException,
   BadRequestException,
+  ConflictException,
 } from '@nestjs/common';
-import { SupabaseService } from '../supabase/supabase.service';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
+import { JwtService } from '@nestjs/jwt';
+import * as bcrypt from 'bcryptjs';
+import { User, UserDocument } from '../schemas/user.schema';
 
 @Injectable()
 export class AuthService {
-  constructor(private supabaseService: SupabaseService) {}
+  constructor(
+    @InjectModel(User.name) private userModel: Model<UserDocument>,
+    private jwtService: JwtService,
+  ) {}
 
   async login(email: string, password: string) {
-    const supabase = this.supabaseService.getClient();
+    const user = await this.userModel.findOne({ email }).exec();
 
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-
-    if (error) {
+    if (!user) {
       throw new UnauthorizedException('Invalid credentials');
     }
 
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    const payload = { sub: user._id.toString(), email: user.email };
+    const access_token = this.jwtService.sign(payload);
+
     return {
-      user: data.user,
-      session: data.session,
+      user: {
+        id: user._id.toString(),
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        language: user.language,
+      },
+      session: {
+        access_token,
+        token_type: 'bearer',
+        expires_in: 3600,
+      },
     };
   }
 
   async signup(email: string, password: string, name?: string) {
-    const supabase = this.supabaseService.getClient();
+    const existingUser = await this.userModel.findOne({ email }).exec();
 
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          name: name || email.split('@')[0],
-        },
-      },
-    });
-
-    if (error) {
-      throw new BadRequestException(error.message);
+    if (existingUser) {
+      throw new ConflictException('User with this email already exists');
     }
 
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const user = new this.userModel({
+      email,
+      password: hashedPassword,
+      name: name || email.split('@')[0],
+    });
+
+    const savedUser = await user.save();
+
+    const payload = { sub: savedUser._id.toString(), email: savedUser.email };
+    const access_token = this.jwtService.sign(payload);
+
     return {
-      user: data.user,
-      session: data.session,
+      user: {
+        id: savedUser._id.toString(),
+        email: savedUser.email,
+        name: savedUser.name,
+        role: savedUser.role,
+        language: savedUser.language,
+      },
+      session: {
+        access_token,
+        token_type: 'bearer',
+        expires_in: 3600,
+      },
     };
   }
 
@@ -54,37 +89,99 @@ export class AuthService {
     provider: 'google' | 'github' | 'facebook',
     redirectTo?: string,
   ) {
-    const supabase = this.supabaseService.getClient();
+    const baseUrl = process.env.BACKEND_URL || 'http://localhost:3000';
+    const urls = {
+      google: `${baseUrl}/auth/google`,
+      github: `${baseUrl}/auth/github`,
+      facebook: `${baseUrl}/auth/facebook`,
+    };
 
-    // Get redirect URL from config or use default
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-    const redirectUrl = redirectTo || `${frontendUrl}/auth/callback`;
-
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider,
-      options: {
-        redirectTo: redirectUrl,
-      },
-    });
-
-    if (error) {
-      throw new BadRequestException(error.message);
+    if (!urls[provider]) {
+      throw new BadRequestException(`Unsupported provider: ${provider}`);
     }
 
+    return { url: urls[provider] };
+  }
+
+  async handleOAuthLogin(oauthUser: any) {
+    if (!oauthUser || !oauthUser.email) {
+      throw new BadRequestException('Invalid OAuth user data');
+    }
+
+    // Check if user exists
+    let user = await this.userModel
+      .findOne({
+        $or: [
+          { email: oauthUser.email },
+          {
+            provider: oauthUser.provider,
+            providerId: oauthUser.providerId,
+          },
+        ],
+      })
+      .exec();
+
+    if (!user) {
+      // Create new user from OAuth data
+      user = new this.userModel({
+        email: oauthUser.email,
+        name: oauthUser.name || oauthUser.email.split('@')[0],
+        provider: oauthUser.provider,
+        providerId: oauthUser.providerId,
+        picture: oauthUser.picture,
+        // No password for OAuth users
+      });
+      await user.save();
+    } else {
+      // Update user info if needed
+      if (!user.provider && oauthUser.provider) {
+        user.provider = oauthUser.provider;
+        user.providerId = oauthUser.providerId;
+      }
+      if (oauthUser.picture && !user.picture) {
+        user.picture = oauthUser.picture;
+      }
+      await user.save();
+    }
+
+    // Generate JWT token
+    const payload = { sub: user._id.toString(), email: user.email };
+    const access_token = this.jwtService.sign(payload);
+
     return {
-      url: data.url,
+      user: {
+        id: user._id.toString(),
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        language: user.language,
+        picture: user.picture,
+      },
+      session: {
+        access_token,
+        token_type: 'bearer',
+        expires_in: 3600,
+      },
     };
   }
 
   async logout() {
-    const supabase = this.supabaseService.getClient();
+    return { message: 'Logged out successfully' };
+  }
 
-    const { error } = await supabase.auth.signOut();
+  async validateUser(userId: string) {
+    const user = await this.userModel.findById(userId).exec();
 
-    if (error) {
-      throw new Error('Logout failed');
+    if (!user) {
+      throw new UnauthorizedException('User not found');
     }
 
-    return { message: 'Logged out successfully' };
+    return {
+      id: user._id.toString(),
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      language: user.language,
+    };
   }
 }

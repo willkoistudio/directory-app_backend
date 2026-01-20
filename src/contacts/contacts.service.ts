@@ -1,190 +1,176 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { SupabaseService } from '../supabase/supabase.service';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
+import { Contact, ContactDocument } from '../schemas/contact.schema';
 import { CreateContactDto } from './dto/create-contact.dto';
 import { UpdateContactDto } from './dto/update-contact.dto';
 
 @Injectable()
 export class ContactsService {
-  constructor(private supabaseService: SupabaseService) {}
+  constructor(
+    @InjectModel(Contact.name) private contactModel: Model<ContactDocument>,
+  ) {}
 
   async create(createContactDto: CreateContactDto) {
-    const supabase = this.supabaseService.getClient();
+    const contact = new this.contactModel({
+      name: createContactDto.name,
+      email: createContactDto.email,
+      phone: createContactDto.phone,
+      workPhone: createContactDto.workPhone,
+      fax: createContactDto.fax,
+      function: createContactDto.function,
+      website: createContactDto.website,
+      companyId: createContactDto.companyId,
+      street: createContactDto.address.street,
+      cityId: createContactDto.address.cityId,
+      postalCode: createContactDto.address.postalCode,
+      countryId: createContactDto.address.countryId,
+      keywords: createContactDto.keywords,
+      avatar: createContactDto.avatar,
+      notes: createContactDto.notes,
+    });
 
-    const { data, error } = await supabase
-      .from('contacts')
-      .insert({
-        name: createContactDto.name,
-        email: createContactDto.email,
-        phone: createContactDto.phone,
-        work_phone: createContactDto.workPhone,
-        fax: createContactDto.fax,
-        function: createContactDto.function,
-        website: createContactDto.website,
-        company_id: createContactDto.companyId,
-        street: createContactDto.address.street,
-        city_id: createContactDto.address.cityId,
-        postal_code: createContactDto.address.postalCode,
-        country_id: createContactDto.address.countryId,
-        keywords: createContactDto.keywords,
-        avatar: createContactDto.avatar,
-        notes: createContactDto.notes,
-      })
-      .select()
-      .single();
-
-    if (error) throw error;
-    return this.mapToContactData(data);
+    const savedContact = await contact.save();
+    return this.mapToContactData(savedContact);
   }
 
   async findAll() {
-    const supabase = this.supabaseService.getClient();
-
-    const { data, error } = await supabase
-      .from('contacts')
-      .select(`
-        *,
-        companies (*)
-      `);
-
-    if (error) throw error;
-    return data.map((contact) => this.mapToContact(contact));
+    const contacts = await this.contactModel
+      .find()
+      .populate('companyId')
+      .exec();
+    return contacts.map((contact) => this.mapToContact(contact));
   }
 
   async findOne(id: string) {
-    const supabase = this.supabaseService.getClient();
+    const contact = await this.contactModel
+      .findById(id)
+      .populate('companyId')
+      .exec();
 
-    const { data, error } = await supabase
-      .from('contacts')
-      .select(`
-        *,
-        companies (*)
-      `)
-      .eq('id', id)
-      .single();
-
-    if (error || !data) {
+    if (!contact) {
       throw new NotFoundException(`Contact with ID ${id} not found`);
     }
 
-    return this.mapToContactData(data);
+    return this.mapToContactData(contact);
   }
 
   async update(id: string, updateContactDto: UpdateContactDto) {
-    const supabase = this.supabaseService.getClient();
-
     const updateData: any = {};
     if (updateContactDto.name) updateData.name = updateContactDto.name;
     if (updateContactDto.email) updateData.email = updateContactDto.email;
     if (updateContactDto.phone) updateData.phone = updateContactDto.phone;
-    if (updateContactDto.workPhone !== undefined) updateData.work_phone = updateContactDto.workPhone;
+    if (updateContactDto.workPhone !== undefined)
+      updateData.workPhone = updateContactDto.workPhone;
     if (updateContactDto.fax !== undefined) updateData.fax = updateContactDto.fax;
-    if (updateContactDto.function) updateData.function = updateContactDto.function;
+    if (updateContactDto.function)
+      updateData.function = updateContactDto.function;
     if (updateContactDto.website) updateData.website = updateContactDto.website;
-    if (updateContactDto.companyId) updateData.company_id = updateContactDto.companyId;
+    if (updateContactDto.companyId)
+      updateData.companyId = updateContactDto.companyId;
     if (updateContactDto.address) {
       updateData.street = updateContactDto.address.street;
-      updateData.city_id = updateContactDto.address.cityId;
-      updateData.postal_code = updateContactDto.address.postalCode;
-      updateData.country_id = updateContactDto.address.countryId;
+      updateData.cityId = updateContactDto.address.cityId;
+      updateData.postalCode = updateContactDto.address.postalCode;
+      updateData.countryId = updateContactDto.address.countryId;
     }
-    if (updateContactDto.keywords) updateData.keywords = updateContactDto.keywords;
+    if (updateContactDto.keywords)
+      updateData.keywords = updateContactDto.keywords;
     if (updateContactDto.avatar) updateData.avatar = updateContactDto.avatar;
-    if (updateContactDto.notes !== undefined) updateData.notes = updateContactDto.notes;
+    if (updateContactDto.notes !== undefined)
+      updateData.notes = updateContactDto.notes;
 
-    const { data, error } = await supabase
-      .from('contacts')
-      .update(updateData)
-      .eq('id', id)
-      .select()
-      .single();
+    const contact = await this.contactModel
+      .findByIdAndUpdate(id, updateData, { new: true })
+      .populate('companyId')
+      .exec();
 
-    if (error) throw error;
-    if (!data) {
+    if (!contact) {
       throw new NotFoundException(`Contact with ID ${id} not found`);
     }
 
-    return this.mapToContactData(data);
+    return this.mapToContactData(contact);
   }
 
   async remove(id: string) {
-    const supabase = this.supabaseService.getClient();
+    const result = await this.contactModel.findByIdAndDelete(id).exec();
 
-    const { error } = await supabase
-      .from('contacts')
-      .delete()
-      .eq('id', id);
+    if (!result) {
+      throw new NotFoundException(`Contact with ID ${id} not found`);
+    }
 
-    if (error) throw error;
     return { message: 'Contact deleted successfully' };
   }
 
   async removeBatch(ids: string[]) {
-    const supabase = this.supabaseService.getClient();
+    const result = await this.contactModel
+      .deleteMany({ _id: { $in: ids } })
+      .exec();
 
-    const { error } = await supabase
-      .from('contacts')
-      .delete()
-      .in('id', ids);
+    if (result.deletedCount === 0) {
+      throw new NotFoundException('No contacts found to delete');
+    }
 
-    if (error) throw error;
     return { message: 'Contacts deleted successfully' };
   }
 
   private mapToContact(contact: any) {
     return {
-      id: contact.id,
+      id: contact._id.toString(),
       name: contact.name,
       email: contact.email,
       phone: contact.phone,
-      workPhone: contact.work_phone,
+      workPhone: contact.workPhone,
       function: contact.function,
-      companyId: contact.company_id,
+      companyId: contact.companyId?._id?.toString() || contact.companyId,
       address: {
         street: contact.street,
-        cityId: contact.city_id,
-        postalCode: contact.postal_code,
-        countryId: contact.country_id,
+        cityId: contact.cityId,
+        postalCode: contact.postalCode,
+        countryId: contact.countryId,
       },
       avatar: contact.avatar,
-      createdAt: contact.created_at,
+      createdAt: contact.createdAt,
     };
   }
 
   private mapToContactData(contact: any) {
-    const company = contact.companies || {};
+    const company = contact.companyId || {};
     return {
-      id: contact.id,
+      id: contact._id.toString(),
       name: contact.name,
       email: contact.email,
       phone: contact.phone,
-      workPhone: contact.work_phone,
+      workPhone: contact.workPhone,
       fax: contact.fax,
       function: contact.function,
       website: contact.website,
-      company: {
-        id: company.id,
-        name: company.name,
-        phone: company.phone,
-        area: company.area,
-        logo: company.logo,
-        address: {
-          street: company.street,
-          cityId: company.city_id,
-          postalCode: company.postal_code,
-          countryId: company.country_id,
-        },
-      },
+      company: company._id
+        ? {
+            id: company._id.toString(),
+            name: company.name,
+            phone: company.phone,
+            area: company.area,
+            logo: company.logo,
+            address: {
+              street: company.street,
+              cityId: company.cityId,
+              postalCode: company.postalCode,
+              countryId: company.countryId,
+            },
+          }
+        : null,
       address: {
         street: contact.street,
-        cityId: contact.city_id,
-        postalCode: contact.postal_code,
-        countryId: contact.country_id,
+        cityId: contact.cityId,
+        postalCode: contact.postalCode,
+        countryId: contact.countryId,
       },
       keywords: contact.keywords || [],
       avatar: contact.avatar,
       notes: contact.notes,
-      createdAt: contact.created_at,
-      updatedAt: contact.updated_at,
+      createdAt: contact.createdAt,
+      updatedAt: contact.updatedAt,
     };
   }
 }
