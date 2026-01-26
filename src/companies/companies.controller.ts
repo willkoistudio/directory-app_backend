@@ -6,13 +6,13 @@ import {
   Patch,
   Param,
   Delete,
-  ParseUUIDPipe,
+  UseGuards,
 } from '@nestjs/common';
 import { CompaniesService } from './companies.service';
 import { CreateCompanyDto } from './dto/create-company.dto';
 import { UpdateCompanyDto } from './dto/update-company.dto';
-import { UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { ParseObjectIdPipe } from '../common/pipes/parse-objectid.pipe';
 
 @Controller('companies')
 export class CompaniesController {
@@ -30,14 +30,14 @@ export class CompaniesController {
   }
 
   @Get(':id')
-  findOne(@Param('id', ParseUUIDPipe) id: string) {
+  findOne(@Param('id', ParseObjectIdPipe) id: string) {
     return this.companiesService.findOne(id);
   }
 
   @Patch(':id')
   @UseGuards(JwtAuthGuard)
   update(
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param('id', ParseObjectIdPipe) id: string,
     @Body() updateCompanyDto: UpdateCompanyDto,
   ) {
     return this.companiesService.update(id, updateCompanyDto);
@@ -45,7 +45,7 @@ export class CompaniesController {
 
   @Delete(':id')
   @UseGuards(JwtAuthGuard)
-  remove(@Param('id', ParseUUIDPipe) id: string) {
+  remove(@Param('id', ParseObjectIdPipe) id: string) {
     return this.companiesService.remove(id);
   }
 }

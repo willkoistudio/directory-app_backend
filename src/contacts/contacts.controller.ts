@@ -6,13 +6,13 @@ import {
   Patch,
   Param,
   Delete,
-  ParseUUIDPipe,
   UseGuards,
 } from '@nestjs/common';
 import { ContactsService } from './contacts.service';
 import { CreateContactDto } from './dto/create-contact.dto';
 import { UpdateContactDto } from './dto/update-contact.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { ParseObjectIdPipe } from '../common/pipes/parse-objectid.pipe';
 
 @Controller('contacts')
 export class ContactsController {
@@ -30,14 +30,14 @@ export class ContactsController {
   }
 
   @Get(':id')
-  findOne(@Param('id', ParseUUIDPipe) id: string) {
+  findOne(@Param('id', ParseObjectIdPipe) id: string) {
     return this.contactsService.findOne(id);
   }
 
   @Patch(':id')
   @UseGuards(JwtAuthGuard)
   update(
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param('id', ParseObjectIdPipe) id: string,
     @Body() updateContactDto: UpdateContactDto,
   ) {
     return this.contactsService.update(id, updateContactDto);
@@ -45,7 +45,7 @@ export class ContactsController {
 
   @Delete(':id')
   @UseGuards(JwtAuthGuard)
-  remove(@Param('id', ParseUUIDPipe) id: string) {
+  remove(@Param('id', ParseObjectIdPipe) id: string) {
     return this.contactsService.remove(id);
   }
 
