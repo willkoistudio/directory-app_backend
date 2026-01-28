@@ -104,8 +104,13 @@ export class AuthService {
   }
 
   async handleOAuthLogin(oauthUser: any) {
-    if (!oauthUser || !oauthUser.email) {
+    if (!oauthUser) {
       throw new BadRequestException('Invalid OAuth user data');
+    }
+
+    // Si pas d'email, générer un email fictif basé sur le provider
+    if (!oauthUser.email) {
+      oauthUser.email = `${oauthUser.provider}_${oauthUser.providerId}@oauth.local`;
     }
 
     // Check if user exists
