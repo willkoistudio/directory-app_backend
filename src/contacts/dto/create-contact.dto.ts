@@ -9,6 +9,9 @@ class AddressDto {
   cityId: string;
 
   @IsString()
+  stateId: string;
+
+  @IsString()
   postalCode: string;
 
   @IsString()
