@@ -24,6 +24,7 @@ export class ContactsService {
       street: createContactDto.address.street,
       cityId: createContactDto.address.cityId,
       postalCode: createContactDto.address.postalCode,
+      stateId: createContactDto.address.stateId,
       countryId: createContactDto.address.countryId,
       keywords: createContactDto.keywords,
       avatar: createContactDto.avatar,
@@ -72,6 +73,7 @@ export class ContactsService {
       updateData.street = updateContactDto.address.street;
       updateData.cityId = updateContactDto.address.cityId;
       updateData.postalCode = updateContactDto.address.postalCode;
+      updateData.stateId = updateContactDto.address.stateId;
       updateData.countryId = updateContactDto.address.countryId;
     }
     if (updateContactDto.keywords)
@@ -127,6 +129,7 @@ export class ContactsService {
         street: contact.street,
         cityId: contact.cityId,
         postalCode: contact.postalCode,
+        stateId: contact.stateId,
         countryId: contact.countryId,
       },
       avatar: contact.avatar,
@@ -156,6 +159,7 @@ export class ContactsService {
               street: company.street,
               cityId: company.cityId,
               postalCode: company.postalCode,
+              stateId: company.stateId,
               countryId: company.countryId,
             },
           }
@@ -164,6 +168,7 @@ export class ContactsService {
         street: contact.street,
         cityId: contact.cityId,
         postalCode: contact.postalCode,
+        stateId: contact.stateId,
         countryId: contact.countryId,
       },
       keywords: contact.keywords || [],

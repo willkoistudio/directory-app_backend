@@ -33,6 +33,9 @@ export class Company {
   postalCode: string;
 
   @Prop()
+  stateId: string;
+
+  @Prop()
   countryId: string;
 
   @Prop()

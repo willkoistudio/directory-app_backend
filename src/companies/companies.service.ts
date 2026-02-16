@@ -22,6 +22,7 @@ export class CompaniesService {
       street: createCompanyDto.address.street,
       cityId: createCompanyDto.address.cityId,
       postalCode: createCompanyDto.address.postalCode,
+      stateId: createCompanyDto.address.stateId,
       countryId: createCompanyDto.address.countryId,
       notes: createCompanyDto.notes,
     });
@@ -59,6 +60,7 @@ export class CompaniesService {
       updateData.street = updateCompanyDto.address.street;
       updateData.cityId = updateCompanyDto.address.cityId;
       updateData.postalCode = updateCompanyDto.address.postalCode;
+      updateData.stateId = updateCompanyDto.address.stateId;
       updateData.countryId = updateCompanyDto.address.countryId;
     }
     if (updateCompanyDto.notes !== undefined)
@@ -96,6 +98,7 @@ export class CompaniesService {
         street: company.street,
         cityId: company.cityId,
         postalCode: company.postalCode,
+        stateId: company.stateId,
         countryId: company.countryId,
       },
       createdAt: company.createdAt,
@@ -115,6 +118,7 @@ export class CompaniesService {
         street: company.street,
         cityId: company.cityId,
         postalCode: company.postalCode,
+        stateId: company.stateId,
         countryId: company.countryId,
       },
       notes: company.notes,

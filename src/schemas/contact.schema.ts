@@ -39,6 +39,9 @@ export class Contact {
   postalCode: string;
 
   @Prop()
+  stateId: string;
+
+  @Prop()
   countryId: string;
 
   @Prop({ type: [String], default: [] })
