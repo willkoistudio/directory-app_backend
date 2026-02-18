@@ -1,123 +1,185 @@
-# Directory API - Backend
+# Directory App — Backend API
 
-Backend API pour l'application Directory App, construit avec NestJS, Supabase, et déployé sur Vercel.
+REST API for the Directory App, built with NestJS and MongoDB Atlas.
 
-## 🚀 Technologies
+## Tech Stack
 
-- **NestJS** - Framework Node.js
-- **Supabase** - Base de données PostgreSQL
-- **Vercel** - Déploiement
-- **TypeScript** - Langage de programmation
+| Layer | Technology |
+|---|---|
+| Framework | NestJS 10 |
+| Language | TypeScript |
+| Database | MongoDB Atlas (Mongoose 9) |
+| Authentication | JWT (@nestjs/jwt) + Passport.js |
+| OAuth | Google, GitHub, Facebook |
+| Password hashing | bcryptjs |
+| Validation | class-validator + class-transformer |
+| Config | @nestjs/config |
+| Testing | Jest |
 
-## 📋 Prérequis
+## Prerequisites
 
 - Node.js 18+
-- npm ou yarn
-- Compte Supabase
-- Compte Vercel (pour le déploiement)
+- A MongoDB Atlas cluster (or local MongoDB instance)
+- OAuth app credentials (Google, GitHub, Facebook) if using social login
 
-## 🛠️ Installation
+## Installation
 
-1. Installer les dépendances :
 ```bash
 npm install
-```
-
-2. Créer un fichier `.env` à partir de `.env.example` :
-```bash
 cp .env.example .env
+# Fill in the required environment variables (see below)
 ```
 
-3. Configurer les variables d'environnement dans `.env` :
-   - `SUPABASE_URL` : URL de votre projet Supabase
-   - `SUPABASE_ANON_KEY` : Clé anonyme de votre projet Supabase
-   - `FRONTEND_URL` : URL de votre frontend (pour CORS)
+## Environment Variables
 
-## 🗄️ Configuration Supabase
+```env
+PORT=3000
+FRONTEND_URL=http://localhost:5173
 
-### 1. Créer les tables
+# MongoDB
+MONGODB_URI=mongodb+srv://<user>:<password>@<cluster>.mongodb.net/<db>
 
-Exécutez le script SQL suivant dans l'éditeur SQL de Supabase :
+# JWT
+JWT_SECRET=<random-secret-min-32-chars>
 
-```sql
--- Voir le fichier supabase-schema.sql
+# Google OAuth
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+GOOGLE_CALLBACK_URL=http://localhost:3000/auth/google/callback
+
+# GitHub OAuth
+GITHUB_CLIENT_ID=
+GITHUB_CLIENT_SECRET=
+GITHUB_CALLBACK_URL=http://localhost:3000/auth/github/callback
+
+# Facebook OAuth
+FACEBOOK_APP_ID=
+FACEBOOK_APP_SECRET=
+FACEBOOK_CALLBACK_URL=http://localhost:3000/auth/facebook/callback
 ```
 
-### 2. Configurer les RLS (Row Level Security)
-
-Les politiques RLS doivent être configurées selon vos besoins de sécurité.
-
-## 🏃 Développement
+## Running the App
 
 ```bash
-# Démarrer en mode développement
+# Development (watch mode)
 npm run start:dev
 
-# Le serveur sera accessible sur http://localhost:3000
-```
+# Debug mode
+npm run start:debug
 
-## 📦 Build
-
-```bash
-# Build pour la production
+# Production
 npm run build
-
-# Démarrer en mode production
 npm run start:prod
 ```
 
-## 🚢 Déploiement sur Vercel
+Server starts on `http://localhost:3000`.
 
-1. Installer Vercel CLI :
-```bash
-npm i -g vercel
+## Architecture
+
+```
+src/
+├── auth/                    # Auth module
+│   ├── decorators/
+│   │   ├── public.decorator.ts    # @Public() — opt-out from JWT guard
+│   │   └── user.decorators.ts     # @CurrentUser() — injects auth user
+│   ├── guards/
+│   │   └── jwt-auth.guard.ts      # Global guard, secure-by-default
+│   ├── strategies/
+│   │   ├── google.strategy.ts
+│   │   ├── github.strategy.ts
+│   │   └── facebook.strategy.ts
+│   ├── schemas/
+│   │   └── user.schema.ts
+│   ├── auth.controller.ts
+│   ├── auth.service.ts
+│   └── auth.module.ts
+├── companies/               # Companies resource (CRUD)
+├── contacts/                # Contacts resource (CRUD + batch delete)
+├── common/
+│   └── pipes/
+│       └── parse-objectid.pipe.ts # Validates :id params as MongoDB ObjectId
+├── app.module.ts
+└── main.ts
 ```
 
-2. Se connecter à Vercel :
-```bash
-vercel login
-```
+### Key Design Decisions
 
-3. Déployer :
-```bash
-vercel
-```
+**Secure by default** — `JwtAuthGuard` is applied globally. Routes that don't require auth are explicitly marked with `@Public()`. This prevents accidentally exposing a protected route.
 
-4. Configurer les variables d'environnement dans le dashboard Vercel :
-   - `SUPABASE_URL`
-   - `SUPABASE_ANON_KEY`
-   - `FRONTEND_URL`
+**DTO validation** — Every incoming payload is validated via class-validator decorators. The global `ValidationPipe` strips unknown fields (`whitelist: true`) and rejects requests with extra properties (`forbidNonWhitelisted: true`).
 
-## 📚 Endpoints API
+**`ParseObjectIdPipe`** — Route params are validated as valid MongoDB ObjectIds before reaching the service layer. Prevents malformed IDs from causing unexpected DB errors.
 
-### Contacts
-- `GET /contacts` - Liste tous les contacts
-- `GET /contacts/:id` - Détails d'un contact
-- `POST /contacts` - Créer un contact
-- `PATCH /contacts/:id` - Mettre à jour un contact
-- `DELETE /contacts/:id` - Supprimer un contact
-- `DELETE /contacts/batch/:ids` - Supprimer plusieurs contacts (ids séparés par virgule)
+**OAuth upsert** — Social login creates the user on first login and updates their profile on subsequent logins. OAuth users have no password stored; a synthetic email is generated for providers that don't return one (`{provider}_{providerId}@oauth.local`).
 
-### Companies
-- `GET /companies` - Liste toutes les entreprises
-- `GET /companies/:id` - Détails d'une entreprise
-- `POST /companies` - Créer une entreprise
-- `PATCH /companies/:id` - Mettre à jour une entreprise
-- `DELETE /companies/:id` - Supprimer une entreprise
+## API Endpoints
 
 ### Auth
-- `POST /login` - Connexion
-- `POST /logout` - Déconnexion
 
-## 🔒 Sécurité
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| POST | /login | Public | Email/password login |
+| POST | /signup | Public | Register new user |
+| GET | /auth/google | Public | Initiate Google OAuth |
+| GET | /auth/google/callback | Public | Google OAuth callback |
+| GET | /auth/github | Public | Initiate GitHub OAuth |
+| GET | /auth/github/callback | Public | GitHub OAuth callback |
+| GET | /auth/facebook | Public | Initiate Facebook OAuth |
+| GET | /auth/facebook/callback | Public | Facebook OAuth callback |
+| POST | /logout | Public | Logout (client-side token removal) |
 
-- Les variables d'environnement sensibles ne doivent jamais être commitées
-- Utilisez les politiques RLS de Supabase pour sécuriser l'accès aux données
-- Configurez CORS correctement pour votre frontend
+OAuth callbacks redirect to `{FRONTEND_URL}/auth/callback?token=<jwt>`.
 
-## 📝 Notes
+### Contacts
 
-- Le backend utilise Supabase comme base de données
-- Les relations entre tables sont gérées via les foreign keys
-- Les timestamps sont automatiquement gérés par Supabase
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| GET | /contacts | — | List all contacts (company populated) |
+| GET | /contacts/:id | — | Get single contact |
+| POST | /contacts | Required | Create contact |
+| PATCH | /contacts/:id | Required | Update contact |
+| DELETE | /contacts/:id | Required | Delete contact |
+| DELETE | /contacts/batch/:ids | Required | Batch delete (comma-separated IDs) |
 
+### Companies
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| GET | /companies | — | List all companies |
+| GET | /companies/:id | — | Get single company |
+| POST | /companies | Required | Create company |
+| PATCH | /companies/:id | Required | Update company |
+| DELETE | /companies/:id | Required | Delete company |
+
+## Authentication Flow
+
+**Email/Password:**
+1. `POST /login` → bcrypt comparison → JWT issued (1h expiry)
+
+**OAuth:**
+1. Frontend navigates to `/auth/:provider`
+2. Passport redirects to provider
+3. Provider redirects to `/auth/:provider/callback`
+4. Strategy normalizes user profile
+5. AuthService upserts User in MongoDB, issues JWT
+6. Backend redirects to `{FRONTEND_URL}/auth/callback?token=<jwt>`
+7. Frontend stores token in Redux state
+
+## Testing
+
+```bash
+# Unit tests
+npm test
+
+# Watch mode
+npm run test:watch
+
+# Coverage
+npm run test:cov
+```
+
+## Linting
+
+```bash
+npm run lint
+```
